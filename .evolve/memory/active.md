@@ -65,14 +65,22 @@
    - provenance 三级（off/meta/meta+receipt），admin scope 拒绝自动降级重试
    - DoS 双层防护：逐块字节计数 + 全量二次检查，速率限制 120 会话/10s
 
+7. **Plugin 供应链安全：五层代码防御体系**（`plugin-security-supply-chain-defense.md`）
+   - 依赖黑名单（plain-crypto-js）：alias/symlink/vendored 三种绕过的对应检测
+   - 静态代码扫描：LINE_RULES（逐行）+ SOURCE_RULES（全文上下文）+ requiresContext 精确打击
+   - 安装管道三步：依赖黑名单 → 代码扫描 → before_install hook（可扩展）
+   - 边界路径系统（boundary-path.ts）：openBoundaryFileSync + Result 类型 + matchBoundaryFileOpenFailure
+   - Jiti 运行时加载 + SDK 别名隔离：hasTrustedOpenClawRootIndicator 防伪造 SDK 根目录
+   - dangerouslyForceUnsafeInstall 逃生舱口 + 强制日志审计
+
 ## 待探索方向
 - Gateway 架构（WebSocket 连接管理、会话路由）
 - Session 管理系统（会话生命周期、历史记录）
 - MCP（Model Context Protocol）集成
-- Plugin 系统（动态加载、隔离）
 - 认证与权限体系（auth profiles、token rotation）
 - Channel 系统（Telegram/Discord/Slack 集成层）
 - 流式响应处理机制（draft-stream-loop.ts）
+- Security Audit 系统（security/audit.ts 1384行，self-auditing 架构）
 
 ## 经验总结
 
@@ -95,6 +103,7 @@
 - 第 4 篇：26 个源码位置 + 11 个外部链接 = 37 个总引用（引用数量提升 6%）
 - 第 5 篇：29 个源码位置 + 10 个外部链接 = 39 个总引用（引用数量提升 5%）
 - 第 6 篇：30 个源码位置 + 11 个外部链接 = 41 个总引用（引用数量提升 5%）
+- 第 7 篇：26 个源码位置（索引表）+ 15 个外部链接 = 41 个总引用（与第6篇持平）
 
 ### 提升引用数量的有效方法
 - 对每个函数的"入口行"和"实现核心行"分别引用，而非只引入口

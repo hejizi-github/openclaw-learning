@@ -1,5 +1,9 @@
 # Iteration Journal
 
+## Session 20260415-062455 — Plugin 供应链安全：五层代码防御体系
+
+深度分析了 `src/security/skill-scanner.ts`（583行）、`src/plugins/install-security-scan.runtime.ts`（904行）、`src/plugins/dependency-denylist.ts`、`src/infra/boundary-file-read.ts`（224行）、`src/infra/boundary-path.ts`、`src/plugins/jiti-loader-cache.ts`、`src/plugins/sdk-alias.ts`，以及 `src/channels/plugins/module-loader.ts`。核心发现是 Clawdbot 的插件安全体系是五层正交防御：1）**依赖黑名单**——拦截 known-bad 包，并通过 `realpath` 对符号链接目标二次检测、递归 `overrides` 解析 alias 绕过；2）**静态代码扫描**——LINE_RULES（逐行，含 `requiresContext` 消歧义）和 SOURCE_RULES（全文双模式匹配）组合，`dangerous-exec` 必须同时匹配 `child_process` 上下文才触发；3）**安装管道编排**——依赖黑名单→代码扫描→`before_install` hook（hook 接收完整内置扫描结果做增量决策）三步短路流水线；4）**边界路径系统**——`openBoundaryFileSync` + Result 类型 + `matchBoundaryFileOpenFailure` 模式匹配覆盖路径穿透、符号链接逃逸、硬链接；5）**Jiti SDK 别名隔离**——`hasTrustedOpenClawRootIndicator` 验证宿主 SDK 真实性后才构建 alias map，防止伪造 SDK 根目录。最有价值的洞察是 `dangerouslyForceUnsafeInstall` 的设计哲学：逃生舱口必须留，但不能沉默——强制安装时 findings 必须记录到日志，比"没有逃生舱口 → 工程师 fork 代码绕过"安全得多。引用数：26 个源码位置（索引表）+ 15 个外部链接 = 41 个总引用（与第6篇持平）。
+
 ## Session 20260415-061707 — ACP 网关桥接：跨协议 AI Agent 通信的工程实践
 
 深度分析了 `src/acp/translator.ts`（1418行）、`src/acp/approval-classifier.ts`（227行）、`src/acp/event-mapper.ts`（410行）以及完整的测试文件覆盖。核心发现是整个 ACP 集成围绕四个关键工程问题展开：1）**快照转增量重分段**——Gateway 推送完整消息快照，ACP 期望增量 chunk，解决方案是在 PendingPrompt 上维护 `sentTextLength`/`sentThoughtLength` 游标，每次只取新增切片；2）**generation 计数器断线处理**——每次断线递增 generation，给 pending prompts 打标记，5秒宽限窗口内区分"pre-ack"（未确认送达）和"post-ack"（已确认）两类请求，差异化处理避免重复发送；3）**工具名三源交叉验证**——从 `_meta.toolName`、`rawInput.tool`、`title` 前缀三处获取工具名，任意两源不一致则 fail-safe 返回 unknown，防止名称注入攻击；4）**CWD 范围自动批准**——`read` 工具仅在路径落在 CWD 范围内才自动批准，路径规范化覆盖了 `../../`、`file://`、`~` 四种攻击面。测试文件（`translator.stop-reason.test.ts`）覆盖了 13 个断线重连场景，是整个模块设计意图最清晰的文档。引用数达到 30 个源码位置 + 11 个外部链接 = 41 个总引用（比第5篇提升 5%）。
