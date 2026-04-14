@@ -18,6 +18,17 @@
    - foreground/background maintenance：lane 队列 + coalesce 调度
    - 插件注册权力边界（owner 机制）
 
+3. **路由引擎：多渠道 Agent 会话身份解析**（`routing-engine-deep-dive.md`）
+   - 会话键格式 `agent:<id>:<rest>` 作为可解析的分布式身份标识
+   - 4 种 DM 隔离模式：main/per-peer/per-channel-peer/per-account-channel-peer
+   - identity links：跨渠道身份融合（canonical name 映射）
+   - 8 层优先级绑定匹配 tiers 数组（peer→parent-peer→wildcard→guild+roles→guild→team→account→channel）
+   - 线程 parentPeer 继承机制（模拟 Discord 权限继承语义）
+   - chat type 别名：group == channel 双向互查
+   - 三层 WeakMap 缓存（agentLookup/evaluatedBindings/resolvedRoute）
+   - 引用相等性作为缓存版本号（bindingsRef/agentsRef/sessionRef 对比）
+   - 清空重置 LRU 替代方案（超过 MAX 直接 clear）
+
 ## 待探索方向
 - Gateway 架构（WebSocket 连接管理、会话路由）
 - Session 管理系统（会话生命周期、历史记录）
@@ -45,3 +56,9 @@
 ### 引用数量
 - 第 1 篇：10 个源码位置 + 7 个外部链接 = 17 个总引用
 - 第 2 篇：15 个源码位置 + 7 个外部链接 = 22 个总引用（引用数量提升 29%）
+- 第 3 篇：24 个源码位置 + 11 个外部链接 = 35 个总引用（引用数量提升 59%）
+
+### 提升引用数量的有效方法
+- 对每个函数的"入口行"和"实现核心行"分别引用，而非只引入口
+- 单独列出测试文件的测试用例行号（测试是设计意图的最好文档）
+- 外部链接搜索时多覆盖：官方文档 + 算法/模式维基 + 行业实践博客 + 框架对比文章
