@@ -1,5 +1,9 @@
 # Iteration Journal
 
+## Session 20260415-060054 — Compaction 系统：LLM 上下文压缩的安全边界与降级架构
+
+深度分析了 `src/agents/compaction.ts`（578行）和 `src/agents/pi-embedded-runner/compact.ts`（1209行），最大的收获是理解了"给 LLM 装护栏"这一工程模式的落地细节——标识符保留策略（strict/off/custom）通过 prompt engineering 约束 LLM 不改 UUID/哈希，不是算法约束而是行为约束，这在工程上比任何校验逻辑都更早发挥作用。工具调用配对不变式（pendingToolCallIds 集合确保 tool_call/tool_result 同 chunk）是整个 chunk 算法最精巧的部分，违反它会导致 Anthropic API 直接拒绝请求而不是静默失败，所以测试覆盖必须包含边界配对场景。让我意外的是 toolResult.details 的安全过滤——代码里用 SECURITY 注释标记了两处关键路径，说明这个过滤不是"防御性编程"而是在 code review 中发现过真实问题后补的，是真实 threat model 的体现。四层递进降级架构（分阶段总结→降级总结→3次重试→纯文字描述）和 900s 安全超时共同说明：压缩失败不是"功能不可用"，而是"上下文窗口耗尽"的前兆，所以任何失败路径都要有可观测的出口。
+
 ## Session 20260415-053433 — 第2篇教学文章：Context Engine 可插拔上下文管理系统
 
 深度阅读了 `src/context/` 模块，核心发现是整个系统围绕一个极简的 `ContextEngine` 接口展开——所有插件只需实现几个方法，便能无缝接入主会话的上下文生命周期。最让我意外的是 `Symbol.for('clawdbot.contextEngine')` 的进程级单例策略：与其用传统的 DI 容器或全局变量，它借用 Symbol 注册表做跨模块共享，既避免了多实例冲突，又不依赖任何框架。向后兼容层的设计同样值得注意——`LegacyEngine` 用空对象模式让旧插件无需感知接口升级，而 Proxy 探测器则在运行时悄无声息地捕获调用错误，而非在编译期强制迁移。引用数从第 1 篇的 17 处提升到 22 处（+29%），主要来自对 foreground/background maintenance 调度逻辑和插件权力边界的更细粒度分析——这部分源码注释极少，靠反复对照测试用例才确认语义。
