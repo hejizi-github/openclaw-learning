@@ -40,15 +40,29 @@
    - 运行时 Schema Migration：getQueueState() 里内联字段补丁（v2026.4.2 兼容）
    - probe lane（auth-probe:/session:probe-）静默错误，不产生 error 级日志
 
+5. **Compaction 系统——LLM 上下文压缩工程实践**（`compaction-system-context-compression.md`）
+   - Token 估算：chars/4 启发式 + 1.2x 安全边距（SAFETY_MARGIN）
+   - 自适应 chunk 比例：BASE_CHUNK_RATIO=0.4，当消息平均体积 > 10% 上下文时线性降至 MIN_CHUNK_RATIO=0.15
+   - 工具调用配对不变式：pendingToolCallIds 集合确保 tool_call/tool_result 永远在同一 chunk
+   - 三层摘要级联：summarizeInStages → summarizeWithFallback → 文字描述降级
+   - 合并摘要指令优先保留"当前状态"而非"历史事件"（Agent 需知道自己在做什么）
+   - 标识符保留策略（strict/off/custom）：通过 prompt engineering 约束 LLM 不乱改 UUID/哈希
+   - SECURITY 双重过滤：toolResult.details 在 Token 估算和摘要生成两处路径都被剥离
+   - 安全超时：EMBEDDED_COMPACTION_TIMEOUT_MS = 900_000ms（15分钟），支持 onCancel hook
+   - 检查点快照：copy-then-modify，max 25 个/session，preCompaction + postCompaction 记录
+   - 四种检查点原因：auto-threshold / overflow-retry / timeout-retry / manual
+   - 真实对话过滤：NON_CONVERSATION_BLOCK_TYPES 排除 thinking/reasoning/toolCall 等块
+   - 失败分类诊断：classifyCompactionReason 将错误文本关键词映射为结构化失败码
+
 ## 待探索方向
 - Gateway 架构（WebSocket 连接管理、会话路由）
+- ACP（Agent Client Protocol）集成：@agentclientprotocol/sdk，translator 1418行，approval-classifier
 - Session 管理系统（会话生命周期、历史记录）
 - MCP（Model Context Protocol）集成
 - Plugin 系统（动态加载、隔离）
 - 认证与权限体系（auth profiles、token rotation）
 - Channel 系统（Telegram/Discord/Slack 集成层）
-- 流式响应处理机制
-- Compaction 系统（checkpoint 快照 + compaction-safety-timeout 15分钟超时）
+- 流式响应处理机制（draft-stream-loop.ts）
 
 ## 经验总结
 
@@ -69,6 +83,7 @@
 - 第 2 篇：15 个源码位置 + 7 个外部链接 = 22 个总引用（引用数量提升 29%）
 - 第 3 篇：24 个源码位置 + 11 个外部链接 = 35 个总引用（引用数量提升 59%）
 - 第 4 篇：26 个源码位置 + 11 个外部链接 = 37 个总引用（引用数量提升 6%）
+- 第 5 篇：29 个源码位置 + 10 个外部链接 = 39 个总引用（引用数量提升 5%）
 
 ### 提升引用数量的有效方法
 - 对每个函数的"入口行"和"实现核心行"分别引用，而非只引入口

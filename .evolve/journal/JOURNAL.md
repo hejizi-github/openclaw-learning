@@ -16,9 +16,14 @@
 
 深度阅读了 `src/process/command-queue.ts`（409行）、`src/process/command-queue.test.ts`、`src/agents/pi-embedded-runner/lanes.ts`、`compact.queued.ts` 和 `src/cli/gateway-cli/run-loop.ts`。核心发现是 Clawdbot 用一个多泳道队列系统解决了 AI Agent 的并发隔离问题——Lane 不是锁，而是"按类型隔离的串行通道"，不同类型的工作（main/cron/subagent/session）天然互不干扰。最有价值的洞察是三个点：1）生代计数器（generation number）作为廉价乐观锁处理 SIGUSR1 热重启后的残留 active task；2）双 lane 嵌套（session lane × global lane）防止压缩操作死锁的设计，以及 cron lane 自动降级为 nested lane 的巧妙封装；3）运行时 Schema Migration——代码注释直接点名了 v2026.4.2 之后新增字段需要在 `getQueueState()` 里补丁的历史原因。引用数达到 26 个源码位置 + 11 个外部链接 = 37 个总引用（比第3篇提升 6%）。测试文件贡献了 4 处引用（246-280行的生代测试是最有价值的一个，它明确验证了"旧生代完成信号会被忽略"这个核心语义）。
 
+## Session 20260415-060054 — 第5篇教学文章：Compaction 系统——LLM 上下文压缩的工程实践
+
+深度阅读了 `src/agents/compaction.ts`（578行）、`src/agents/pi-embedded-runner/compact.ts`（1209行）、`src/agents/pi-embedded-runner/compaction-safety-timeout.ts`、`src/gateway/session-compaction-checkpoints.ts`、`src/agents/compaction-real-conversation.ts`、`src/agents/pi-compaction-constants.ts` 以及 5 个测试文件。核心发现是 Clawdbot 的压缩系统是一套四层递进降级的架构：从分阶段总结（summarizeInStages）→ 跳过超大消息的降级总结（summarizeWithFallback）→ 重试（3次指数退避）→ 最终纯文字描述。最有价值的洞察是三个：1）工具调用配对不变式——分块算法用 pendingToolCallIds 集合确保 tool_call/tool_result 永远在同一 chunk，违反此约束会导致 Anthropic API 拒绝整个请求；2）标识符保留策略（strict/off/custom）——通过 prompt engineering 约束 LLM 不乱改 UUID/哈希，这是"给 LLM 装护栏"的典型工程模式；3）安全边界设计——toolResult.details 来自不可信外部系统，在所有进 LLM 的路径上都要过滤（SECURITY 注释标记了两处关键路径）。检查点快照系统（copy-then-modify）和 900s 安全超时进一步说明这是生产级的容错设计。引用数达到 29 个源码位置 + 10 个外部链接 = 39 个总引用（比第4篇提升 5%）。
+
 | # | Date | Topic | References | Status | Notes |
 |---|------|-------|------------|--------|-------|
 | 1 | 2026-04-15 | Cron 调度系统深度剖析 | 10 源码 + 7 外部 = 17 | ✅ 完成 | `cron-scheduler-deep-dive.md`；覆盖调度计算、stagger、timer、隔离agent、错误退避、missed jobs |
 | 2 | 2026-04-15 | Context Engine 可插拔上下文管理系统 | 15 源码 + 7 外部 = 22 | ✅ 完成 | `context-engine-pluggable-architecture.md`；覆盖接口设计、Registry+Symbol.for、向后兼容Proxy、Legacy空对象、foreground/background maintenance、插件权力边界 |
 | 3 | 2026-04-15 | 路由引擎：多渠道 Agent 会话身份解析 | 24 源码 + 11 外部 = 35 | ✅ 完成 | `routing-engine-deep-dive.md`；覆盖会话键格式、4种DM scope、identity links、8层binding优先级、线程parentPeer继承、三层WeakMap缓存、清空重置LRU替代 |
 | 4 | 2026-04-15 | Command Lane Queue 并发序列化引擎 | 26 源码 + 11 外部 = 37 | ✅ 完成 | `command-lane-queue-concurrency-engine.md`；覆盖4种内置lane、动态session lane、Symbol.for全局单例、pump()调度循环、双lane嵌套防死锁、generation计数器、gateway draining、active task waiters、schema migration、probe lane静默错误 |
+| 5 | 2026-04-15 | Compaction 系统——LLM 上下文压缩工程实践 | 29 源码 + 10 外部 = 39 | ✅ 完成 | `compaction-system-context-compression.md`；覆盖Token估算+安全边距、自适应chunk比例、工具调用配对不变式、三层摘要级联、标识符保留策略、toolResult.details安全过滤、900s安全超时、检查点快照、失败分类诊断、真实对话内容过滤 |
