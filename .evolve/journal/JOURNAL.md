@@ -1,5 +1,9 @@
 # Iteration Journal
 
+## Session 20260415-064527 — 认证体系逆向阅读法：从攻击向量反推设计决策
+
+这是迄今为止引用最分散的一篇——源码文件多达八个，横跨 auth、credentials、rate-limit、device-auth、secret-equal 多个子模块，但主题高度聚焦：六种身份模式背后各自对应一类具体的信任假设和攻击面。最让我意外的是 Tailscale WHOIS 双重验证的设计：标头可以被任何中间件伪造，但 WHOIS 查询走本地 Unix Socket，从网络上无法触达，这不是"防御性编程"，而是设计者在脑子里跑过了完整的攻击链再选的方案。`safeEqualSecret` 的 SHA256 前缀也是同样的模式：`timingSafeEqual` 解决了时序泄露，SHA256 解决了长度泄露，两个机制各司其职、缺一不可，说明作者对比较安全的理解是系统性的而非碎片化的。引用数 40 个（28 源码 + 12 外部），与第8篇持平，密度合理；但这篇的叙事结构比前几篇更难组织——六个并列模式容易写成"功能清单"，最终用"三个信任层级"作为叙事轴才让结构收拢起来。
+
 ## Session 20260415-064527 — Gateway 认证体系：六种身份模式与分层防御设计
 
 本次选题是 Gateway 认证系统，涉及 `src/gateway/auth.ts`（640行）、`src/gateway/auth-rate-limit.ts`（236行）、`src/gateway/credentials.ts`（336行）、`src/gateway/auth-token-resolution.ts`（85行）、`src/gateway/rate-limit-attempt-serialization.ts`（38行）、`src/security/secret-equal.ts`（10行）、`src/gateway/server-shared-auth-generation.ts`（94行）、`src/gateway/device-auth.ts`（54行）。核心发现有七个：1）**六种认证模式分三个层级**（网络位置信任 / 共享秘钥 / 第三方身份），每层的信任假设和约束完全不同；2）**四级凭证解析优先链**（explicit→config→secretRef→env），每个生效的来源都记录在 `modeSource` 字段中，这是多来源配置系统可观测性的关键；3）**Tailscale WHOIS 双重验证**——标头可以伪造，WHOIS 查询走本地 Unix Socket 无法伪造，这是真实的威胁模型驱动的设计，而不是"防御性编程"；4）**`safeEqualSecret` 的 SHA256 前缀**——`timingSafeEqual` 只防时序攻击，不防长度泄露，SHA256 统一长度是一个很小但精确的安全细节；5）**速率限制 scope 独立**——四个 scope 的 Map key 分离，一个端点被暴力破解不会误伤其他端点；6）**Tailscale 异步验证的 TOCTOU 防护**——Promise chaining 实现的 per-key 串行化，用引用相等性作为版本标识符，与路由引擎的 WeakMap 缓存模式同根同源；7）**密钥世代与热轮转**——密钥更新后主动断连旧会话（WebSocket 4001），这让轮转成为真正有意义的安全操作而不只是挡新连接。
