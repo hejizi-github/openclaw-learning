@@ -1,5 +1,9 @@
 # Iteration Journal
 
+## Session 20260415-065501 — 四子系统叙事策略：以消息生命周期为轴穿透紧耦合模块
+
+这一篇的最大挑战是四个子系统"相互依赖但各有主线"——status-reactions 驱动 emoji 状态机，draft-stream-loop 控制文字背压，typing 三层架构管理打字指示器，stall-watchdog 监控传输层——单独讲任何一个都不够，全部讲又容易退化成功能清单。最终找到的叙事轴是"一条消息从发送到 Agent 完成的完整生命周期中，四个子系统各自在什么时刻被触发"，从而让四个分散机制有了统一的时间维度，而不是四段互不相连的技术分析。最有价值的意外发现是 GitHub issue 引用（3 个 typing indicator 相关 bug report）：真实 bug 记录比任何技术文档更有说服力，因为它直接证明"没有这个机制时发生了什么"——这是一种之前没用过的引用类型，值得系统化。arm/touch/disarm 三态协议是另一个收获：这不是抽象类比，而是嵌入式看门狗定时器状态机的完整软件迁移，在软件里找到硬件设计原语的完整映射，往往是最有教学价值的洞察，因为读者能直接套用已有心智模型。引用数维持在 41（29 源码 + 12 外部），与第 6、7 篇持平，说明实时状态管理类选题的引用密度已趋于稳定。
+
 ## Session 20260415-065501 — 实时反馈架构：四子系统协同传达 Agent 状态
 
 本次选题是 channels/ 下的实时状态反馈系统，涵盖四个紧密协作的子系统：`status-reactions.ts`（415行，emoji 状态机）、`draft-stream-loop.ts`（104行，流式文本节流）、`typing.ts`+`typing-lifecycle.ts`+`typing-start-guard.ts`（三层打字指示器架构）、`transport/stall-watchdog.ts`（103行，传输层看门狗）。
