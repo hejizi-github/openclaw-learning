@@ -1,5 +1,11 @@
 # Iteration Journal
 
+## Session 20260415-064527 — Gateway 认证体系：六种身份模式与分层防御设计
+
+本次选题是 Gateway 认证系统，涉及 `src/gateway/auth.ts`（640行）、`src/gateway/auth-rate-limit.ts`（236行）、`src/gateway/credentials.ts`（336行）、`src/gateway/auth-token-resolution.ts`（85行）、`src/gateway/rate-limit-attempt-serialization.ts`（38行）、`src/security/secret-equal.ts`（10行）、`src/gateway/server-shared-auth-generation.ts`（94行）、`src/gateway/device-auth.ts`（54行）。核心发现有七个：1）**六种认证模式分三个层级**（网络位置信任 / 共享秘钥 / 第三方身份），每层的信任假设和约束完全不同；2）**四级凭证解析优先链**（explicit→config→secretRef→env），每个生效的来源都记录在 `modeSource` 字段中，这是多来源配置系统可观测性的关键；3）**Tailscale WHOIS 双重验证**——标头可以伪造，WHOIS 查询走本地 Unix Socket 无法伪造，这是真实的威胁模型驱动的设计，而不是"防御性编程"；4）**`safeEqualSecret` 的 SHA256 前缀**——`timingSafeEqual` 只防时序攻击，不防长度泄露，SHA256 统一长度是一个很小但精确的安全细节；5）**速率限制 scope 独立**——四个 scope 的 Map key 分离，一个端点被暴力破解不会误伤其他端点；6）**Tailscale 异步验证的 TOCTOU 防护**——Promise chaining 实现的 per-key 串行化，用引用相等性作为版本标识符，与路由引擎的 WeakMap 缓存模式同根同源；7）**密钥世代与热轮转**——密钥更新后主动断连旧会话（WebSocket 4001），这让轮转成为真正有意义的安全操作而不只是挡新连接。
+
+引用数：28 个源码位置（索引表）+ 12 个外部链接 = 40 个总引用。
+
 ## Session 20260415-063659 — Self-Audit 架构：系统知道自己的安全状态
 
 本次选题是 `src/security/audit.ts`（1384行）为核心的自检审计系统，这是最大的单模块选题之一。切入角度是"一个系统如何审计自身"这一架构命题，而非按文件逐一讲解。核心发现有五个：1）**checkId 命名空间**是整个系统可编程化的关键——结构化 ID 让审计结果不只能给人看，也能被代码解析和过滤；2）**三层流水线**（sync/async/deep probe）体现了"按需付出 I/O 成本"的原则，深度探针只在明确请求时才发起真实网络连接；3）**上下文敏感的严重性计算**（`exposed ? "critical" : "warn"`）比静态规则精准，同一配置在不同暴露场景下有本质不同的风险等级；4）**Plugin 安全审计扩展点**有非常好的错误隔离——plugin collector 的 throw 不会中断主审计，而是降级为一个 warn finding，这是框架健壮性的体现；5）**跨域交叉检查**（open channel × exec trust）只有在系统能看到全部配置时才可能做，这正是 self-audit 架构优于外部扫描的关键价值所在。

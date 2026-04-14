@@ -73,14 +73,24 @@
    - Jiti 运行时加载 + SDK 别名隔离：hasTrustedOpenClawRootIndicator 防伪造 SDK 根目录
    - dangerouslyForceUnsafeInstall 逃生舱口 + 强制日志审计
 
+8. **Gateway 认证体系：六种身份模式与分层防御设计**（`gateway-auth-layered-defense-system.md`）
+   - 六种认证模式分三个层级：网络位置信任（none）/ 共享秘钥（token/password）/ 第三方身份（tailscale/trusted-proxy/device-token）
+   - 四级凭证解析优先链：explicit→config→secretRef→env，modeSource 记录来源可追踪
+   - Tailscale WHOIS 双重验证：标头可伪造，WHOIS 查本地 Unix Socket 不可伪造
+   - safeEqualSecret：SHA256 统一长度 + timingSafeEqual 防时序攻击（两个维度都保护）
+   - 速率限制 scope 独立（4个 scope）：一个端点被攻击不误伤其他端点
+   - Tailscale 异步验证的 TOCTOU 防护：Promise chaining 实现 per-key 串行化
+   - 密钥世代热轮转：更新密钥后主动断连旧会话（WebSocket 4001）
+   - trusted-proxy 与 token 互斥约束：两者并存打穿 trusted-proxy 的隔离性
+   - `pruneTimer.unref()` 技巧：后台清理定时器不阻止进程退出
+
 ## 待探索方向
 - Gateway 架构（WebSocket 连接管理、会话路由）
 - Session 管理系统（会话生命周期、历史记录）
 - MCP（Model Context Protocol）集成
-- 认证与权限体系（auth profiles、token rotation）
+- auth profiles 系统（多 profile 轮换、OAuth refresh）
 - Channel 系统（Telegram/Discord/Slack 集成层）
 - 流式响应处理机制（draft-stream-loop.ts）
-- Security Audit 系统（security/audit.ts 1384行，self-auditing 架构）
 
 ## 经验总结
 
@@ -104,6 +114,7 @@
 - 第 5 篇：29 个源码位置 + 10 个外部链接 = 39 个总引用（引用数量提升 5%）
 - 第 6 篇：30 个源码位置 + 11 个外部链接 = 41 个总引用（引用数量提升 5%）
 - 第 7 篇：26 个源码位置（索引表）+ 15 个外部链接 = 41 个总引用（与第6篇持平）
+- 第 8 篇：28 个源码位置（索引表）+ 12 个外部链接 = 40 个总引用（略减，主题集中在 8 个文件的系统性分析）
 
 ### 提升引用数量的有效方法
 - 对每个函数的"入口行"和"实现核心行"分别引用，而非只引入口
