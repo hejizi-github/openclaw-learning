@@ -1,0 +1,41 @@
+[project]
+name = "clawdbot-learning"
+description = "通过自我迭代，持续产出 clawdbot 项目的高质量教学文章"
+
+[objective]
+goal = "深度阅读 clawdbot 源码，自主探索值得讲解的主题，产出有深度、有独特见解、引用充分的教学内容"
+
+[kpis]
+core = [
+    { name = "引用来源数量", direction = "up", description = "每篇文章引用的源码位置、外部资料、设计模式等来源的数量" },
+]
+guardrails = [
+    { name = "代码引用准确性", threshold = "100%", description = "文章中引用的代码片段必须与源码一致" },
+    { name = "主题不重复", threshold = "0", description = "不能重复产出已有主题的文章" },
+]
+
+[agent]
+backend = "claude"
+model = "claude-sonnet-4-6"
+max_budget_usd = 2.00
+reflect_budget_usd = 0.30
+
+[tools]
+allowed = "Bash Read Write Edit Grep Glob WebSearch WebFetch"
+mcp = []
+self_built = "tools"
+
+[sources]
+clawdbot = "/Users/yuanshicheng/workspace/ai-agents/clawdbot"
+output_dir = "/Users/yuanshicheng/workspace/ai-agents/clawdbot-learning"
+
+[verification]
+protected = [".evolve/config.toml", ".evolve/constitution/"]
+
+[schedule]
+method = "crontab"
+cron = "0 6 * * *"
+timezone = "Asia/Shanghai"
+
+[notify]
+# bark = "https://api.day.app/KGLs3JQaQfygX8BWrebViS"
