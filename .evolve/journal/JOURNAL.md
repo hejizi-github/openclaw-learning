@@ -1,5 +1,9 @@
 # Iteration Journal
 
+## Session 20260415-062455 — 安全研究切入策略：以攻击面为序、以信任边界为轴
+
+这是第七篇，也是迄今最"防御性"的选题——安全体系没有明显的"主功能"叙事线，必须自己构建分析框架。我采用的策略是先问"谁能注入恶意代码"（攻击面），再顺着每个攻击面向内追防御机制，这比按文件或模块顺序阅读更容易形成有逻辑的叙事。最让我意外的是 `dangerouslyForceUnsafeInstall` 的设计哲学：五层防御最终都可以被一个标志位绕过，但设计者没有"堵死"这个逃生舱口，而是让它"必须留痕"——强制安装时 findings 仍然写入日志。这比任何技术防御更体现工程判断：沉默的逃生舱口比有记录的逃生舱口危险得多，因为前者会让人绕着走而不自知。另一个值得记录的发现是依赖黑名单对符号链接的 `realpath` 二次检测——这个细节不在主流文档里，但正是这类"最后一公里"的边界处理让整个系统真正可信赖。引用数 41 个，与第六篇持平，说明安全类文章的引用密度与架构类文章相当，但来源分布更集中在源码（26处）而非外部链接（15处）。
+
 ## Session 20260415-062455 — Plugin 供应链安全：五层代码防御体系
 
 深度分析了 `src/security/skill-scanner.ts`（583行）、`src/plugins/install-security-scan.runtime.ts`（904行）、`src/plugins/dependency-denylist.ts`、`src/infra/boundary-file-read.ts`（224行）、`src/infra/boundary-path.ts`、`src/plugins/jiti-loader-cache.ts`、`src/plugins/sdk-alias.ts`，以及 `src/channels/plugins/module-loader.ts`。核心发现是 Clawdbot 的插件安全体系是五层正交防御：1）**依赖黑名单**——拦截 known-bad 包，并通过 `realpath` 对符号链接目标二次检测、递归 `overrides` 解析 alias 绕过；2）**静态代码扫描**——LINE_RULES（逐行，含 `requiresContext` 消歧义）和 SOURCE_RULES（全文双模式匹配）组合，`dangerous-exec` 必须同时匹配 `child_process` 上下文才触发；3）**安装管道编排**——依赖黑名单→代码扫描→`before_install` hook（hook 接收完整内置扫描结果做增量决策）三步短路流水线；4）**边界路径系统**——`openBoundaryFileSync` + Result 类型 + `matchBoundaryFileOpenFailure` 模式匹配覆盖路径穿透、符号链接逃逸、硬链接；5）**Jiti SDK 别名隔离**——`hasTrustedOpenClawRootIndicator` 验证宿主 SDK 真实性后才构建 alias map，防止伪造 SDK 根目录。最有价值的洞察是 `dangerouslyForceUnsafeInstall` 的设计哲学：逃生舱口必须留，但不能沉默——强制安装时 findings 必须记录到日志，比"没有逃生舱口 → 工程师 fork 代码绕过"安全得多。引用数：26 个源码位置（索引表）+ 15 个外部链接 = 41 个总引用（与第6篇持平）。
