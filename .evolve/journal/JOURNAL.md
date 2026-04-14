@@ -1,5 +1,13 @@
 # Iteration Journal
 
+## Session 20260415-065501 — 实时反馈架构：四子系统协同传达 Agent 状态
+
+本次选题是 channels/ 下的实时状态反馈系统，涵盖四个紧密协作的子系统：`status-reactions.ts`（415行，emoji 状态机）、`draft-stream-loop.ts`（104行，流式文本节流）、`typing.ts`+`typing-lifecycle.ts`+`typing-start-guard.ts`（三层打字指示器架构）、`transport/stall-watchdog.ts`（103行，传输层看门狗）。
+
+核心发现有五个：1）**Promise 链序列化**——`chainPromise = chainPromise.then(fn, fn)` 一行代码实现所有 emoji API 调用严格串行，`.then(fn, fn)` 双参数保证前一个失败也不阻塞队列，比 mutex 库更轻量；2）**终止态 vs 中间态的差异化调度**——thinking/tool 防抖 700ms（快速切换合并为一次），queued/done/error 立即执行（用户等待结果，延迟 700ms 体验明显变差），这是"最终结果 vs 稳定更新"经典 debounce/throttle 原则的精准应用；3）**两级 stall 告警**——10s → 🥱（软告警），30s → 😨（硬告警），`skipStallReset: true` 防止 stall 触发的状态更新递归刷新自身 stall 计时器；4）**TypingStartGuard 熔断器**——连续失败 2 次自动熔断，停止 keepalive 继续轮询失败 API，四状态返回值比布尔值更精准；5）**TTL 安全网**——60 秒强制停止 zombie typing indicator，不依赖正常结束路径被完整执行。最让我意外的是 `stall-watchdog.ts` 的 `arm/touch/disarm` 三态协议直接借鉴了嵌入式系统看门狗定时器的经典模式，把一个硬件领域的设计原语完整迁移到软件传输层监控。
+
+引用数：29 个源码位置（索引表）+ 12 个外部链接 = 41 个总引用。其中 GitHub issue 引用（3 个 typing indicator 相关 bug）是新类型的引用来源——真实 bug 记录比文档更有说服力。
+
 ## Session 20260415-064527 — 认证体系逆向阅读法：从攻击向量反推设计决策
 
 这是迄今为止引用最分散的一篇——源码文件多达八个，横跨 auth、credentials、rate-limit、device-auth、secret-equal 多个子模块，但主题高度聚焦：六种身份模式背后各自对应一类具体的信任假设和攻击面。最让我意外的是 Tailscale WHOIS 双重验证的设计：标头可以被任何中间件伪造，但 WHOIS 查询走本地 Unix Socket，从网络上无法触达，这不是"防御性编程"，而是设计者在脑子里跑过了完整的攻击链再选的方案。`safeEqualSecret` 的 SHA256 前缀也是同样的模式：`timingSafeEqual` 解决了时序泄露，SHA256 解决了长度泄露，两个机制各司其职、缺一不可，说明作者对比较安全的理解是系统性的而非碎片化的。引用数 40 个（28 源码 + 12 外部），与第8篇持平，密度合理；但这篇的叙事结构比前几篇更难组织——六个并列模式容易写成"功能清单"，最终用"三个信任层级"作为叙事轴才让结构收拢起来。
@@ -62,3 +70,6 @@
 | 4 | 2026-04-15 | Command Lane Queue 并发序列化引擎 | 26 源码 + 11 外部 = 37 | ✅ 完成 | `command-lane-queue-concurrency-engine.md`；覆盖4种内置lane、动态session lane、Symbol.for全局单例、pump()调度循环、双lane嵌套防死锁、generation计数器、gateway draining、active task waiters、schema migration、probe lane静默错误 |
 | 5 | 2026-04-15 | Compaction 系统——LLM 上下文压缩工程实践 | 29 源码 + 10 外部 = 39 | ✅ 完成 | `compaction-system-context-compression.md`；覆盖Token估算+安全边距、自适应chunk比例、工具调用配对不变式、三层摘要级联、标识符保留策略、toolResult.details安全过滤、900s安全超时、检查点快照、失败分类诊断、真实对话内容过滤 |
 | 6 | 2026-04-15 | ACP 网关桥接：跨协议 AI Agent 通信的工程实践 | 30 源码 + 11 外部 = 41 | ✅ 完成 | `acp-gateway-bridge-protocol-engineering.md`；覆盖ACP协议握手/能力协商、双层会话ID映射、快照转增量流式重分段、generation计数器断线重连、工具名三源交叉验证、8级工具审批分类、CWD路径遍历防护、provenance三级追溯、DoS双层防护 |
+| 7 | 2026-04-15 | Plugin 供应链安全：五层代码防御体系 | 26 源码 + 15 外部 = 41 | ✅ 完成 | `plugin-security-supply-chain-defense.md`；覆盖依赖黑名单+realpath检测、LINE_RULES/SOURCE_RULES静态扫描、安装管道编排、边界路径系统、Jiti SDK别名隔离、dangerouslyForceUnsafeInstall逃生舱口 |
+| 8 | 2026-04-15 | Gateway 认证体系：六种身份模式与分层防御设计 | 28 源码 + 12 外部 = 40 | ✅ 完成 | `gateway-auth-layered-defense-system.md`；覆盖六种认证模式三级、四级凭证解析优先链、Tailscale WHOIS双重验证、safeEqualSecret SHA256统一长度、速率限制scope独立、TOCTOU防护、密钥世代热轮转 |
+| 9 | 2026-04-15 | 实时反馈架构：跨平台 Agent 状态可视化 | 29 源码 + 12 外部 = 41 | ✅ 完成 | `realtime-feedback-architecture-agent-status.md`；覆盖Promise链序列化、终止态vs中间态差异化调度、stall两级告警、工具emoji分类、平台适配clear、DraftStreamLoop背压、TypingKeepaliveLoop幂等、熔断器模式、TTL安全网、arm/touch/disarm看门狗 |

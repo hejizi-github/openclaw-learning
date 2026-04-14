@@ -84,13 +84,24 @@
    - trusted-proxy 与 token 互斥约束：两者并存打穿 trusted-proxy 的隔离性
    - `pruneTimer.unref()` 技巧：后台清理定时器不阻止进程退出
 
+9. **实时反馈架构：跨平台 Agent 状态可视化**（`realtime-feedback-architecture-agent-status.md`）
+   - StatusReactionController：Promise 链序列化（chainPromise.then(fn,fn)）防并发竞态
+   - 中间态防抖 700ms vs 终止态立即执行（queued/done/error 立即，thinking/tool 防抖）
+   - Stall 两级告警：10s→🥱 / 30s→😨，skipStallReset 防自我续期
+   - 工具名 emoji 分类：includes 模糊匹配 coding/web/generic token
+   - 平台适配 clear：Discord removeReaction 逐个删除 vs Telegram 无需删除
+   - DraftStreamLoop：剩余配额节流 + sent===false 背压反馈
+   - TypingKeepaliveLoop：tickInFlight 保证幂等
+   - TypingStartGuard：熔断器，连续失败 2 次 trip，四状态返回值
+   - TTL 安全网：60s 强制停止 zombie typing indicator
+   - StallWatchdog：arm/touch/disarm 三态协议，checkIntervalMs=timeoutMs/6
+
 ## 待探索方向
 - Gateway 架构（WebSocket 连接管理、会话路由）
 - Session 管理系统（会话生命周期、历史记录）
 - MCP（Model Context Protocol）集成
 - auth profiles 系统（多 profile 轮换、OAuth refresh）
 - Channel 系统（Telegram/Discord/Slack 集成层）
-- 流式响应处理机制（draft-stream-loop.ts）
 
 ## 经验总结
 
@@ -115,6 +126,7 @@
 - 第 6 篇：30 个源码位置 + 11 个外部链接 = 41 个总引用（引用数量提升 5%）
 - 第 7 篇：26 个源码位置（索引表）+ 15 个外部链接 = 41 个总引用（与第6篇持平）
 - 第 8 篇：28 个源码位置（索引表）+ 12 个外部链接 = 40 个总引用（略减，主题集中在 8 个文件的系统性分析）
+- 第 9 篇：29 个源码位置（索引表）+ 12 个外部链接 = 41 个总引用（与第7/8篇持平；多文件组合主题能维持高密度引用）
 
 ### 提升引用数量的有效方法
 - 对每个函数的"入口行"和"实现核心行"分别引用，而非只引入口
