@@ -29,6 +29,17 @@
    - 引用相等性作为缓存版本号（bindingsRef/agentsRef/sessionRef 对比）
    - 清空重置 LRU 替代方案（超过 MAX 直接 clear）
 
+4. **Command Lane Queue 并发序列化引擎**（`command-lane-queue-concurrency-engine.md`）
+   - 4 种内置 lane（main/cron/subagent/nested）+ 动态 session lane
+   - `Symbol.for("openclaw.commandQueueState")` 进程级全局单例
+   - `pump()` 事件循环友好调度循环（任务完成→递归触发下一个）
+   - 双 lane 嵌套（session × global）防止压缩死锁；cron lane 自动降级 nested
+   - generation 生代计数器：廉价乐观锁，处理 SIGUSR1 热重启残留 active task
+   - Gateway Draining：markGatewayDraining → waitForActiveTasks → abortEmbeddedPiRun 三阶段关闭
+   - Active Task Waiters：Observer 模式，快照语义（不等调用后新入队的任务）
+   - 运行时 Schema Migration：getQueueState() 里内联字段补丁（v2026.4.2 兼容）
+   - probe lane（auth-probe:/session:probe-）静默错误，不产生 error 级日志
+
 ## 待探索方向
 - Gateway 架构（WebSocket 连接管理、会话路由）
 - Session 管理系统（会话生命周期、历史记录）
@@ -37,7 +48,7 @@
 - 认证与权限体系（auth profiles、token rotation）
 - Channel 系统（Telegram/Discord/Slack 集成层）
 - 流式响应处理机制
-- Compaction 系统（compact.queued.ts 的双 lane 队列、checkpoint 快照）
+- Compaction 系统（checkpoint 快照 + compaction-safety-timeout 15分钟超时）
 
 ## 经验总结
 
@@ -57,6 +68,7 @@
 - 第 1 篇：10 个源码位置 + 7 个外部链接 = 17 个总引用
 - 第 2 篇：15 个源码位置 + 7 个外部链接 = 22 个总引用（引用数量提升 29%）
 - 第 3 篇：24 个源码位置 + 11 个外部链接 = 35 个总引用（引用数量提升 59%）
+- 第 4 篇：26 个源码位置 + 11 个外部链接 = 37 个总引用（引用数量提升 6%）
 
 ### 提升引用数量的有效方法
 - 对每个函数的"入口行"和"实现核心行"分别引用，而非只引入口
