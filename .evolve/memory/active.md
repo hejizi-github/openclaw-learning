@@ -54,9 +54,19 @@
    - 真实对话过滤：NON_CONVERSATION_BLOCK_TYPES 排除 thinking/reasoning/toolCall 等块
    - 失败分类诊断：classifyCompactionReason 将错误文本关键词映射为结构化失败码
 
+6. **ACP 网关桥接：跨协议 AI Agent 通信**（`acp-gateway-bridge-protocol-engineering.md`）
+   - ACP 协议握手/能力协商：声明支持能力集（image/embeddedContext），拒绝 per-session MCP
+   - 双层会话 ID 映射：ACP sessionId (UUID) ↔ Gateway sessionKey（结构化字符串），5 级优先级解析
+   - 快照转增量重分段：`sentTextLength`/`sentThoughtLength` 游标，每次只取新增切片发送
+   - generation 计数器断线处理：宽限窗口 5s，pre-ack vs post-ack 差异化处理，agent.wait 轮询恢复
+   - 工具名三源交叉验证（_meta/rawInput/title 三源一致才接受），防名称注入
+   - 8 级工具审批分类（readonly_scoped/readonly_search/mutating/exec_capable/control_plane/interactive/other/unknown）
+   - CWD 路径遍历防护：覆盖 ../、file://、~/ 四种攻击面
+   - provenance 三级（off/meta/meta+receipt），admin scope 拒绝自动降级重试
+   - DoS 双层防护：逐块字节计数 + 全量二次检查，速率限制 120 会话/10s
+
 ## 待探索方向
 - Gateway 架构（WebSocket 连接管理、会话路由）
-- ACP（Agent Client Protocol）集成：@agentclientprotocol/sdk，translator 1418行，approval-classifier
 - Session 管理系统（会话生命周期、历史记录）
 - MCP（Model Context Protocol）集成
 - Plugin 系统（动态加载、隔离）
@@ -84,6 +94,7 @@
 - 第 3 篇：24 个源码位置 + 11 个外部链接 = 35 个总引用（引用数量提升 59%）
 - 第 4 篇：26 个源码位置 + 11 个外部链接 = 37 个总引用（引用数量提升 6%）
 - 第 5 篇：29 个源码位置 + 10 个外部链接 = 39 个总引用（引用数量提升 5%）
+- 第 6 篇：30 个源码位置 + 11 个外部链接 = 41 个总引用（引用数量提升 5%）
 
 ### 提升引用数量的有效方法
 - 对每个函数的"入口行"和"实现核心行"分别引用，而非只引入口

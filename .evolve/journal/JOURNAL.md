@@ -1,5 +1,9 @@
 # Iteration Journal
 
+## Session 20260415-061707 — ACP 网关桥接：跨协议 AI Agent 通信的工程实践
+
+深度分析了 `src/acp/translator.ts`（1418行）、`src/acp/approval-classifier.ts`（227行）、`src/acp/event-mapper.ts`（410行）以及完整的测试文件覆盖。核心发现是整个 ACP 集成围绕四个关键工程问题展开：1）**快照转增量重分段**——Gateway 推送完整消息快照，ACP 期望增量 chunk，解决方案是在 PendingPrompt 上维护 `sentTextLength`/`sentThoughtLength` 游标，每次只取新增切片；2）**generation 计数器断线处理**——每次断线递增 generation，给 pending prompts 打标记，5秒宽限窗口内区分"pre-ack"（未确认送达）和"post-ack"（已确认）两类请求，差异化处理避免重复发送；3）**工具名三源交叉验证**——从 `_meta.toolName`、`rawInput.tool`、`title` 前缀三处获取工具名，任意两源不一致则 fail-safe 返回 unknown，防止名称注入攻击；4）**CWD 范围自动批准**——`read` 工具仅在路径落在 CWD 范围内才自动批准，路径规范化覆盖了 `../../`、`file://`、`~` 四种攻击面。测试文件（`translator.stop-reason.test.ts`）覆盖了 13 个断线重连场景，是整个模块设计意图最清晰的文档。引用数达到 30 个源码位置 + 11 个外部链接 = 41 个总引用（比第5篇提升 5%）。
+
 ## Session 20260415-060054 — Compaction 系统：LLM 上下文压缩的安全边界与降级架构
 
 深度分析了 `src/agents/compaction.ts`（578行）和 `src/agents/pi-embedded-runner/compact.ts`（1209行），最大的收获是理解了"给 LLM 装护栏"这一工程模式的落地细节——标识符保留策略（strict/off/custom）通过 prompt engineering 约束 LLM 不改 UUID/哈希，不是算法约束而是行为约束，这在工程上比任何校验逻辑都更早发挥作用。工具调用配对不变式（pendingToolCallIds 集合确保 tool_call/tool_result 同 chunk）是整个 chunk 算法最精巧的部分，违反它会导致 Anthropic API 直接拒绝请求而不是静默失败，所以测试覆盖必须包含边界配对场景。让我意外的是 toolResult.details 的安全过滤——代码里用 SECURITY 注释标记了两处关键路径，说明这个过滤不是"防御性编程"而是在 code review 中发现过真实问题后补的，是真实 threat model 的体现。四层递进降级架构（分阶段总结→降级总结→3次重试→纯文字描述）和 900s 安全超时共同说明：压缩失败不是"功能不可用"，而是"上下文窗口耗尽"的前兆，所以任何失败路径都要有可观测的出口。
@@ -31,3 +35,4 @@
 | 3 | 2026-04-15 | 路由引擎：多渠道 Agent 会话身份解析 | 24 源码 + 11 外部 = 35 | ✅ 完成 | `routing-engine-deep-dive.md`；覆盖会话键格式、4种DM scope、identity links、8层binding优先级、线程parentPeer继承、三层WeakMap缓存、清空重置LRU替代 |
 | 4 | 2026-04-15 | Command Lane Queue 并发序列化引擎 | 26 源码 + 11 外部 = 37 | ✅ 完成 | `command-lane-queue-concurrency-engine.md`；覆盖4种内置lane、动态session lane、Symbol.for全局单例、pump()调度循环、双lane嵌套防死锁、generation计数器、gateway draining、active task waiters、schema migration、probe lane静默错误 |
 | 5 | 2026-04-15 | Compaction 系统——LLM 上下文压缩工程实践 | 29 源码 + 10 外部 = 39 | ✅ 完成 | `compaction-system-context-compression.md`；覆盖Token估算+安全边距、自适应chunk比例、工具调用配对不变式、三层摘要级联、标识符保留策略、toolResult.details安全过滤、900s安全超时、检查点快照、失败分类诊断、真实对话内容过滤 |
+| 6 | 2026-04-15 | ACP 网关桥接：跨协议 AI Agent 通信的工程实践 | 30 源码 + 11 外部 = 41 | ✅ 完成 | `acp-gateway-bridge-protocol-engineering.md`；覆盖ACP协议握手/能力协商、双层会话ID映射、快照转增量流式重分段、generation计数器断线重连、工具名三源交叉验证、8级工具审批分类、CWD路径遍历防护、provenance三级追溯、DoS双层防护 |
